@@ -1,0 +1,34 @@
+menu "HTTPS Server Configuration"
+
+config ENABLE_HTTPS_USER_CALLBACK
+    bool "Enable user callback with HTTPS Server"
+    select ESP_TLS_SERVER_MIN_AUTH_MODE_OPTIONAL
+    help
+        Enable user callback for esp_https_server which can be used to get SSL context (connection information).
+        E.g. Certificate of the connected client.
+
+config ENABLE_MBEDTLS_LOGS
+    bool "Enable all logs from the mbed tls"
+    default false
+    help
+        Enable all logs that occur during the https session between device and server.
+
+config DEBUG_MBEDTLS_ERRORS
+    bool "Enable all logs from the mbed tls"
+    default false
+    help
+        Enable all logs that occur during the https session between device and server.
+
+config SET_MDNS_HOST_NAME
+    string "mDNS Hostname"
+    default "esp32"
+    help
+        The hostname to be set for mDNS (e.g., 'esp32' will result in esp32.local).
+
+config SET_MDNS_HOST_NAME_INSTANCE
+    string "mDNS Instance Name"
+    default "ESP32 Web Server"
+    help
+        Human-readable name for the mDNS service instance.
+
+endmenu

@@ -1,0 +1,15 @@
+{
+    "configurations": [
+      {
+        "name": "ESP-IDF",
+        "compilerPath": "/home/tlead1/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20240530/xtensa-esp-elf/bin/xtensa-esp-elf-gcc",
+        "cStandard": "c11",
+        "cppStandard": "c++17",
+        "intelliSenseMode": "linux-gcc-x64",
+        "compileCommands": "${workspaceFolder}/build/compile_commands.json",
+        "configurationProvider": "espressif.esp-idf-extension"
+      }
+    ],
+    "version": 4
+  }
+  
