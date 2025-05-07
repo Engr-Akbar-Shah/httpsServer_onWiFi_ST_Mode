@@ -1,11 +1,14 @@
 /*
-Name :
+Name : st_server.c
 
 Description :
+This file implements the core logic for a secure HTTPS server running on an ESP32.
+It includes handlers for GET/POST/PUT/DELETE methods, mDNS setup, dynamic URI registration,
+and runtime interaction via HTML and JavaScript over TLS.
 
-Author :
+Author : Akbar Shah
 
-Date :
+Date : May 7, 2025
 */
 
 #include <stdio.h>
@@ -35,6 +38,18 @@ static const httpd_uri_t info_uri;
 extern const char index_html_start[] asm("_binary_index_html_start");
 extern const char index_html_end[] asm("_binary_index_html_end");
 
+/*
+Function : set_mdns_name_server
+
+Description : Initializes the mDNS service and sets the hostname and instance name for
+              the ESP32 device.
+
+Parameter : None
+
+Return : esp_err_t
+
+Example Call : esp_err_t err = set_mdns_name_server();
+*/
 void set_mdns_name_server(void)
 {
     ESP_ERROR_CHECK(mdns_init());
@@ -45,9 +60,22 @@ void set_mdns_name_server(void)
     ESP_ERROR_CHECK(mdns_instance_name_set(CONFIG_SET_MDNS_HOST_NAME_INSTANCE));
     ESP_LOGI("mDNS", "mDNS instance name set to: %s", CONFIG_SET_MDNS_HOST_NAME_INSTANCE);
 
+    ESP_ERROR_CHECK(mdns_service_add(NULL, "_https", "_tcp", 443, NULL, 0));
+
     ESP_LOGI("mDNS", "mDNS initialized");
 }
 
+/*
+Function : event_handler
+
+Description : Handles HTTPS server-related events like TLS error reporting.
+
+Parameter : void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data
+
+Return : None
+
+Example Call : (registered internally using esp_event_handler_register)
+*/
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
@@ -63,6 +91,18 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
 #if CONFIG_ENABLE_HTTPS_USER_CALLBACK
 #ifdef CONFIG_ESP_TLS_USING_MBEDTLS
+
+/*
+Function : print_peer_cert_info
+
+Description : Logs details of the peer's SSL certificate for debugging purposes.
+
+Parameter : const mbedtls_ssl_context *ssl
+
+Return : None
+
+Example Call : print_peer_cert_info(ssl_ctx);
+*/
 static void print_peer_cert_info(const mbedtls_ssl_context *ssl)
 {
     const mbedtls_x509_crt *cert;
@@ -89,6 +129,19 @@ static void print_peer_cert_info(const mbedtls_ssl_context *ssl)
     free(buf);
 }
 #endif
+
+/*
+Function : https_server_user_callback
+
+Description : Handles HTTPS session events like session creation and closure. Logs peer
+              certificate info and socket details.
+
+Parameter : esp_https_server_user_cb_arg_t *user_cb
+
+Return : None
+
+Example Call : (assigned to conf.user_cb in start_webserver)
+*/
 static void https_server_user_callback(esp_https_server_user_cb_arg_t *user_cb)
 {
     ESP_LOGI(TAG, "User callback invoked!");
@@ -142,6 +195,18 @@ static void https_server_user_callback(esp_https_server_user_cb_arg_t *user_cb)
 }
 #endif
 
+/*
+Function : uri_decode
+
+Description : Decodes a URL-encoded string into a plain string, replacing encoded
+              characters and '+' with spaces.
+
+Parameter : char *out, const char *in, size_t len
+
+Return : None
+
+Example Call : uri_decode(decoded, param, strlen(param));
+*/
 static void uri_decode(char *out, const char *in, size_t len)
 {
     char a, b;
@@ -171,6 +236,17 @@ static void uri_decode(char *out, const char *in, size_t len)
     out[j] = '\0';
 }
 
+/*
+Function : index_handler
+
+Description : Serves the main HTML page from embedded flash.
+
+Parameter : httpd_req_t *req
+
+Return : esp_err_t
+
+Example Call : Called automatically when "/" endpoint is accessed.
+*/
 static esp_err_t index_handler(httpd_req_t *req)
 {
     const size_t html_len = index_html_end - index_html_start;
@@ -178,6 +254,17 @@ static esp_err_t index_handler(httpd_req_t *req)
     return httpd_resp_send(req, index_html_start, html_len);
 }
 
+/*
+Function : submit_handler
+
+Description : Handles GET requests for the /submit endpoint and displays the user's submitted message.
+
+Parameter : httpd_req_t *req
+
+Return : esp_err_t
+
+Example Call : Triggered via GET form submission.
+*/
 static esp_err_t submit_handler(httpd_req_t *req)
 {
     char query[100], param[100] = {0}, decoded[100] = {0};
@@ -203,6 +290,17 @@ static esp_err_t submit_handler(httpd_req_t *req)
     return httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
 }
 
+/*
+Function : handle_post
+
+Description : Handles POST requests sent to /api/post and echoes the received data back.
+
+Parameter : httpd_req_t *req
+
+Return : esp_err_t
+
+Example Call : Triggered via Fetch API POST request.
+*/
 static esp_err_t handle_post(httpd_req_t *req)
 {
     char buf[100];
@@ -215,6 +313,17 @@ static esp_err_t handle_post(httpd_req_t *req)
     return ESP_OK;
 }
 
+/*
+Function : handle_put
+
+Description : Handles PUT requests sent to /api/put and echoes the received data back.
+
+Parameter : httpd_req_t *req
+
+Return : esp_err_t
+
+Example Call : Triggered via Fetch API PUT request.
+*/
 static esp_err_t handle_put(httpd_req_t *req)
 {
     char buf[100];
@@ -227,6 +336,17 @@ static esp_err_t handle_put(httpd_req_t *req)
     return ESP_OK;
 }
 
+/*
+Function : handle_delete
+
+Description : Handles DELETE requests sent to /api/delete and echoes the received data back.
+
+Parameter : httpd_req_t *req
+
+Return : esp_err_t
+
+Example Call : Triggered via Fetch API DELETE request.
+*/
 static esp_err_t handle_delete(httpd_req_t *req)
 {
     char buf[100];
@@ -239,6 +359,17 @@ static esp_err_t handle_delete(httpd_req_t *req)
     return ESP_OK;
 }
 
+/*
+Function : info_get_handler
+
+Description : Responds to GET requests at /info endpoint with JSON-formatted device info.
+
+Parameter : httpd_req_t *req
+
+Return : esp_err_t
+
+Example Call : Triggered via dynamic URI registration.
+*/
 static esp_err_t info_get_handler(httpd_req_t *req)
 {
     const char *resp_str =
@@ -248,6 +379,17 @@ static esp_err_t info_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+/*
+Function : http_404_error_handler
+
+Description : Custom 404 handler, provides special response for /info and default for others.
+
+Parameter : httpd_req_t *req, httpd_err_code_t err
+
+Return : esp_err_t
+
+Example Call : Automatically called for unmatched URIs.
+*/
 static esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
     if (strcmp("/info", req->uri) == 0)
@@ -261,6 +403,17 @@ static esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
     return ESP_FAIL;
 }
 
+/*
+Function : ctrl_put_handler
+
+Description : Handles URI registration/unregistration at runtime based on PUT data ('0' to unregister, other to register /info).
+
+Parameter : httpd_req_t *req
+
+Return : esp_err_t
+
+Example Call : Triggered via PUT request to /ctrl.
+*/
 static esp_err_t ctrl_put_handler(httpd_req_t *req)
 {
     char buf;
@@ -332,15 +485,15 @@ static const httpd_uri_t info_uri = {
     .user_ctx = NULL};
 
 /*
-Function :
+Function : stop_webserver
 
-Description :
+Description : Stops the HTTPS server and frees certificate memory.
 
-Parameter :
+Parameter : httpd_handle_t server
 
-Return :
+Return : esp_err_t
 
-Example Call :
+Example Call : stop_webserver(server);
 */
 static esp_err_t stop_webserver(httpd_handle_t server)
 {
@@ -351,10 +504,10 @@ static esp_err_t stop_webserver(httpd_handle_t server)
         ESP_LOGI(TAG, "HTTPS server stopped");
     }
 
-    if (SEVRER_CERTIFICATE)
+    if (SERVER_CERTIFICATE)
     {
-        free(SEVRER_CERTIFICATE);
-        SEVRER_CERTIFICATE = NULL;
+        free(SERVER_CERTIFICATE);
+        SERVER_CERTIFICATE = NULL;
     }
 
     if (PRIVATE_KEY)
@@ -366,15 +519,15 @@ static esp_err_t stop_webserver(httpd_handle_t server)
 }
 
 /*
-Function :
+Function : disconnect_handler
 
-Description :
+Description : Event handler that stops the webserver when Wi-Fi disconnects.
 
-Parameter :
+Parameter : void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data
 
-Return :
+Return : esp_err_t
 
-Example Call :
+Example Call : Registered to WIFI_EVENT_STA_DISCONNECTED
 */
 static void disconnect_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data)
@@ -395,15 +548,15 @@ static void disconnect_handler(void *arg, esp_event_base_t event_base,
 }
 
 /*
-Function :
+Function : connect_handler
 
-Description :
+Description : Event handler that starts the webserver on successful IP acquisition.
 
-Parameter :
+Parameter : void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data
 
-Return :
+Return : esp_err_t
 
-Example Call :
+Example Call : Registered to IP_EVENT_STA_GOT_IP
 */
 static void connect_handler(void *arg, esp_event_base_t event_base,
                             int32_t event_id, void *event_data)
@@ -416,7 +569,18 @@ static void connect_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-void register_auto_connect_handler(void)
+/*
+Function : register_auto_connect_handler
+
+Description : Registers event handlers for automatic server start/stop based on Wi-Fi connectivity.
+
+Parameter : None
+
+Return : None
+
+Example Call : register_auto_connect_handler();
+*/
+esp_err_t register_auto_connect_handler(void)
 {
     static httpd_handle_t server = NULL;
     /* Register event handlers to stop the server when Wi-Fi or Ethernet is disconnected,
@@ -426,16 +590,33 @@ void register_auto_connect_handler(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));
 
     ESP_ERROR_CHECK(esp_event_handler_register(ESP_HTTPS_SERVER_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
+    return ESP_OK;
 }
 
+/*
+Function : start_webserver
+
+Description : Loads certificates, sets up the HTTPS server, registers all URI handlers, and starts the server.
+
+Parameter : None
+
+Return : httpd_handle_t - handle to the HTTPS server
+
+Example Call : server = start_webserver();
+*/
 httpd_handle_t start_webserver(void)
 {
-    load_certificates_from_nvs();
+    esp_err_t err = load_certificates_from_nvs();
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to load certificates: %s", esp_err_to_name(err));
+        return NULL;
+    }
 
     httpd_handle_t server = NULL;
     httpd_ssl_config_t conf = HTTPD_SSL_CONFIG_DEFAULT();
 
-    conf.servercert = (const uint8_t *)SEVRER_CERTIFICATE;
+    conf.servercert = (const uint8_t *)SERVER_CERTIFICATE;
     conf.servercert_len = SEVRER_CERTIFICATE_SIZE + 1;
 
     conf.prvtkey_pem = (const uint8_t *)PRIVATE_KEY;
@@ -474,6 +655,6 @@ httpd_handle_t start_webserver(void)
         return server;
     }
 
-    ESP_LOGI(TAG, "Error starting server!");
+    ESP_LOGE(TAG, "Error starting server!");
     return NULL;
 }

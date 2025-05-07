@@ -1,11 +1,12 @@
 /*
-Name : 
+Name : wifi.h
 
-Description : 
+Description : Header file for initializing and connecting the ESP32 to a Wi-Fi network in Station (STA) mode.
+              Declares the interface to start the Wi-Fi connection process using the ESP-IDF Wi-Fi and event libraries.
 
-Author : 
+Author : Akbar Shah
 
-Date : 
+Date : May 7, 2025
 */
 
 #ifndef _WIFI_H
@@ -14,6 +15,6 @@ Date :
 #include "esp_wifi.h"
 #include "esp_event.h"
 
-void connect_wifi_st(void);
+esp_err_t connect_wifi_st(void);
 
 #endif

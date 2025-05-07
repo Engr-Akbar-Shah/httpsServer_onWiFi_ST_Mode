@@ -1,11 +1,11 @@
 /*
-Name :
+Name : wifi.c
 
-Description :
+Description : Wi-Fi station mode initialization and connection logic using ESP-IDF.
 
-Author :
+Author : Akbar Shah
 
-Date :
+Date : May 7, 2025
 */
 
 #include "wifi.h"
@@ -65,6 +65,23 @@ static const char *TAG = "wifi station";
 
 static int s_retry_num = 0;
 
+/*
+Function : event_handler
+
+Description : Handles Wi-Fi and IP events like station start, disconnect, and IP acquisition.
+              Manages retry logic and sets appropriate event bits based on connection status.
+
+Parameter :
+    - void *arg: Not used.
+    - esp_event_base_t event_base: Type of event (WIFI_EVENT or IP_EVENT).
+    - int32_t event_id: Specific event ID.
+    - void *event_data: Event-specific data (e.g., IP info).
+
+Return : void
+
+Example Call :
+    Automatically registered as a handler using esp_event_handler_instance_register()
+*/
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
@@ -95,7 +112,20 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-void wifi_init_sta(void)
+/*
+Function : wifi_init_sta
+
+Description : Initializes the ESP32 Wi-Fi in station mode, configures credentials, connects to AP,
+              registers event handlers, and waits for either a successful connection or failure.
+
+Parameter : None
+
+Return : esp_err_t (ESP_OK on successful connection or failure handled internally)
+
+Example Call :
+    esp_err_t err = wifi_init_sta();
+*/
+esp_err_t wifi_init_sta(void)
 {
     s_wifi_event_group = xEventGroupCreate();
 
@@ -159,14 +189,29 @@ void wifi_init_sta(void)
     {
         ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
                  EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+        return ESP_FAIL;
     }
     else
     {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
+        return ESP_FAIL;
     }
+    return ESP_OK;
 }
 
-void connect_wifi_st(void)
+/*
+Function : connect_wifi_st
+
+Description : Initializes NVS flash memory and triggers Wi-Fi station initialization and connection.
+
+Parameter : None
+
+Return : esp_err_t (ESP_OK if NVS and Wi-Fi initialized successfully, error otherwise)
+
+Example Call :
+    esp_err_t err = connect_wifi_st();
+*/
+esp_err_t connect_wifi_st(void)
 {
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -178,5 +223,6 @@ void connect_wifi_st(void)
     ESP_ERROR_CHECK(ret);
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
-    wifi_init_sta();
+    ret = wifi_init_sta();
+    return ret;
 }

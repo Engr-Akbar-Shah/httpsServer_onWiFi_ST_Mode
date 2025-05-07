@@ -1,11 +1,14 @@
 /*
-Name : 
+Name : main.c
 
-Description : 
+Description :
+            Entry point of the ST Server Dev Hub application for ESP32.
+            Initializes Wi-Fi, registers event handlers for automatic web server
+            start/stop based on network connectivity, and starts the HTTPS web server.
 
-Author : 
+Author : Akbar Shah
 
-Date : 
+Date : 07/05/2025
 */
 
 #include "st_server.h"
@@ -14,14 +17,39 @@ Date :
 
 void app_main(void)
 {
-    connect_wifi_st();
+    esp_err_t ret;
 
-    register_auto_connect_handler();
+    ret = connect_wifi_st();
+    if (ret == ESP_OK)
+    {
+        ESP_LOGI("MAIN", "Wi-Fi connected successfully.");
+    }
+    else
+    {
+        ESP_LOGE("MAIN", "Wi-Fi connection failed: %s", esp_err_to_name(ret));
+    }
 
-    start_webserver();
+    ret = register_auto_connect_handler();
+    if (ret == ESP_OK)
+    {
+        ESP_LOGI("MAIN", "HTTPS server event handlers registered.");
+    }
+    else
+    {
+        ESP_LOGE("MAIN", "Failed to register HTTPS event handlers: %s", esp_err_to_name(ret));
+    }
+
+    if (start_webserver() != NULL)
+    {
+        ESP_LOGI("MAIN", "HTTPS web server started successfully.");
+    }
+    else
+    {
+        ESP_LOGE("MAIN", "Failed to start HTTPS web server.");
+    }
 
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(5000));  // 5-second delay
+        vTaskDelay(pdMS_TO_TICKS(5000)); // Keep main task alive
     }
 }
